@@ -1,0 +1,24 @@
+---
+title: "Practical Machine Learning - Course Project"
+author: "Oliver Fritz"
+date: "July 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Requirements
+```{r requirements, message=FALSE, warning=FALSE}
+require(tidyverse)
+```
+
+## Load data
+```{r load, message=FALSE, warning=FALSE}
+training <- read_csv("./data/pml-training.csv")
+testing <- read_csv("./data/pml-testing.csv")
+```
+
+## Title
+
