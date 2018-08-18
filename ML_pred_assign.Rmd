@@ -1,7 +1,7 @@
 ---
 title: "Practical Machine Learning - Course Project"
 author: "Oliver Fritz"
-date: "July 2018"
+date: "August 2018"
 output: html_document
 ---
 
@@ -9,16 +9,104 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+## Background
+This is the final report of the prediction assignment as part of John Hopkins University's Practical Machine Learning Specialization on Coursera. The task consists in predicting different types of (correct and incorrect) weightlifting performances from accelerometer data. The original data and links to resulting research papers can be found [here](http://groupware.les.inf.puc-rio.br/har).
+
+
 ## Requirements
-```{r requirements, message=FALSE, warning=FALSE}
+We will use the tidyverse package collection and the caret package wrapper for machine learning.
+```{r require, message=FALSE, warning=FALSE}
 require(tidyverse)
+require(caret)
 ```
 
 ## Load data
-```{r load, message=FALSE, warning=FALSE}
-training <- read_csv("./data/pml-training.csv")
-testing <- read_csv("./data/pml-testing.csv")
+We load training and testing data from the given URLs into tibbles using the readr package from tidyverse. Testing data has only 20 observations and it is missing the *classe* variable that we want to predict.
+```{r load, message=FALSE, warning=FALSE, cache=TRUE}
+URLtrain <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+URLtest  <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+pmltrain <- read_csv(url(URLtrain))
+pmltest  <- read_csv(url(URLtest))
 ```
 
-## Title
 
+## Explore and prepare data
+```{r dim}
+dim(pmltrain)
+```
+
+The training data has 19,622 observations with 160 variables. However, 100 of the variables have mostly NA values. These variables will not help to build our prediction model and can be ignored.
+```{r tableNA}
+# Show number of variables per proportion of NA values.
+pmltrain %>% map_dbl(~round(mean(is.na(.)),3)) %>% table()
+```
+
+We will divide the training dataset into an actual training partition (70% of the observations) and a partition that will serve for validation. We create a new *train* variable to identify training and validation observations. Furthermore, we remove all variables with more than 97% NA values and the first seven variables that only contain subject and timestamp data.
+
+```{r partition, cache=TRUE, message=FALSE, warning=FALSE}
+set.seed(14082018)
+inTrain <- createDataPartition(pmltrain$classe, p=0.7, list=F)
+
+data <- pmltrain %>%
+    rename(ID=X1) %>%
+    mutate(train=(ID %in% inTrain),
+           classe=as.factor(classe)) %>%
+    select(-(1:7)) %>% 
+    select_if(~mean(is.na(.)) < 0.97)
+```
+
+## Model building
+We will use two machine learning algorithms that are most suited for multi-class classification:
+
+- Generalized Boosted Regression
+- Random Forest
+
+We will assess the accuracy of the prediction on the validation observations while also measuring the "costs" (system time) for each of the model fitting algorithms.
+
+### Generalized Boosted Regression
+```{r gbm, cache=TRUE, warning=FALSE, message=FALSE}
+# Fit gbm model and count system time
+system.time(gbm_fit <- train(
+    classe~.,
+    data=data[data$train==TRUE,-54],
+    method="gbm",
+    na.action=na.omit, 
+    verbose=FALSE))
+
+# Predict on validation set and assess accuracy
+gbm_pred <- predict(gbm_fit, data[data$train==FALSE,])
+confusionMatrix(gbm_pred, data[data$train==FALSE,]$classe)
+```
+
+### Random Forest
+```{r forest, cache=TRUE, warning=FALSE, message=FALSE}
+# Fit random forest model and count system time
+system.time(rf_fit <- train(
+    classe~., 
+    data=data[data$train==TRUE,-54],
+    method="rf",
+    na.action=na.omit))
+
+# Predict on validation set and assess accuracy
+rf_pred <- predict(rf_fit, data[data$train==FALSE,])
+confusionMatrix(rf_pred, data[data$train==FALSE,]$classe)
+```
+
+## Conclusion
+
+### Accuracy and expected out-of-sample error
+Predictions on the validation dataset with the model built using random forest are highly accurate at more than 99% overall accuracy and a kappa coefficient of 0.9923. The expected out-of-sample error would thus be 1-Accuracy=0.0061.
+
+Predictions based on the model built with generalized boosted regression are still fairly accurate at more than 95%.
+
+### Costs
+Both algorithms are rather machine time consuming. Random forest, however, uses more than 150% more system time than generalized boosted regression.
+
+### Prediction on testing data
+Because of its high accuracy, we will use the random forest model to predict on the test set.
+
+```{r pred, cache=TRUE}
+prediction <- predict(rf_fit, pmltest)
+prediction
+```

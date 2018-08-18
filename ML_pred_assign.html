@@ -120,22 +120,170 @@ $(document).ready(function () {
 
 <h1 class="title toc-ignore">Practical Machine Learning - Course Project</h1>
 <h4 class="author"><em>Oliver Fritz</em></h4>
-<h4 class="date"><em>July 2018</em></h4>
+<h4 class="date"><em>August 2018</em></h4>
 
 </div>
 
 
+<div id="background" class="section level2">
+<h2>Background</h2>
+<p>This is the final report of the prediction assignment as part of John Hopkins University’s Practical Machine Learning Specialization on Coursera. The task consists in predicting different types of (correct and incorrect) weightlifting performances from accelerometer data. The original data and links to resulting research papers can be found <a href="http://groupware.les.inf.puc-rio.br/har">here</a>.</p>
+</div>
 <div id="requirements" class="section level2">
 <h2>Requirements</h2>
-<pre class="r"><code>require(tidyverse)</code></pre>
+<p>We will use the tidyverse package collection and the caret package wrapper for machine learning.</p>
+<pre class="r"><code>require(tidyverse)
+require(caret)</code></pre>
 </div>
 <div id="load-data" class="section level2">
 <h2>Load data</h2>
-<pre class="r"><code>training &lt;- read_csv(&quot;./data/pml-training.csv&quot;)
-testing &lt;- read_csv(&quot;./data/pml-testing.csv&quot;)</code></pre>
+<p>We load training and testing data from the given URLs into tibbles using the readr package from tidyverse. Testing data has only 20 observations and it is missing the <em>classe</em> variable that we want to predict.</p>
+<pre class="r"><code>URLtrain &lt;- &quot;http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv&quot;
+URLtest  &lt;- &quot;http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv&quot;
+
+pmltrain &lt;- read_csv(url(URLtrain))
+pmltest  &lt;- read_csv(url(URLtest))</code></pre>
 </div>
-<div id="title" class="section level2">
-<h2>Title</h2>
+<div id="explore-and-prepare-data" class="section level2">
+<h2>Explore and prepare data</h2>
+<pre class="r"><code>dim(pmltrain)</code></pre>
+<pre><code>## [1] 19622   160</code></pre>
+<p>The training data has 19,622 observations with 160 variables. However, 100 of the variables have mostly NA values. These variables will not help to build our prediction model and can be ignored.</p>
+<pre class="r"><code># Show number of variables per proportion of NA values.
+pmltrain %&gt;% map_dbl(~round(mean(is.na(.)),3)) %&gt;% table()</code></pre>
+<pre><code>## .
+##     0 0.979  0.98 0.983 
+##    60    93     5     2</code></pre>
+<p>We will divide the training dataset into an actual training partition (70% of the observations) and a partition that will serve for validation. We create a new <em>train</em> variable to identify training and validation observations. Furthermore, we remove all variables with more than 97% NA values and the first seven variables that only contain subject and timestamp data.</p>
+<pre class="r"><code>set.seed(14082018)
+inTrain &lt;- createDataPartition(pmltrain$classe, p=0.7, list=F)
+
+data &lt;- pmltrain %&gt;%
+    rename(ID=X1) %&gt;%
+    mutate(train=(ID %in% inTrain),
+           classe=as.factor(classe)) %&gt;%
+    select(-(1:7)) %&gt;% 
+    select_if(~mean(is.na(.)) &lt; 0.97)</code></pre>
+</div>
+<div id="model-building" class="section level2">
+<h2>Model building</h2>
+<p>We will use two machine learning algorithms that are most suited for multi-class classification:</p>
+<ul>
+<li>Generalized Boosted Regression</li>
+<li>Random Forest</li>
+</ul>
+<p>We will assess the accuracy of the prediction on the validation observations while also measuring the “costs” (system time) for each of the model fitting algorithms.</p>
+<div id="generalized-boosted-regression" class="section level3">
+<h3>Generalized Boosted Regression</h3>
+<pre class="r"><code># Fit gbm model and count system time
+system.time(gbm_fit &lt;- train(
+    classe~.,
+    data=data[data$train==TRUE,-54],
+    method=&quot;gbm&quot;,
+    na.action=na.omit, 
+    verbose=FALSE))</code></pre>
+<pre><code>##    user  system elapsed 
+## 1781.83    3.69 1788.08</code></pre>
+<pre class="r"><code># Predict on validation set and assess accuracy
+gbm_pred &lt;- predict(gbm_fit, data[data$train==FALSE,])
+confusionMatrix(gbm_pred, data[data$train==FALSE,]$classe)</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 1642   40    0    2    2
+##          B   17 1058   29    3   17
+##          C   12   36  986   29   12
+##          D    3    2    8  922   10
+##          E    0    3    3    8 1041
+## 
+## Overall Statistics
+##                                           
+##                Accuracy : 0.9599          
+##                  95% CI : (0.9546, 0.9648)
+##     No Information Rate : 0.2845          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
+##                                           
+##                   Kappa : 0.9493          
+##  Mcnemar's Test P-Value : 1.256e-07       
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.9809   0.9289   0.9610   0.9564   0.9621
+## Specificity            0.9896   0.9861   0.9817   0.9953   0.9971
+## Pos Pred Value         0.9739   0.9413   0.9172   0.9757   0.9867
+## Neg Pred Value         0.9924   0.9830   0.9917   0.9915   0.9915
+## Prevalence             0.2845   0.1935   0.1743   0.1638   0.1839
+## Detection Rate         0.2790   0.1798   0.1675   0.1567   0.1769
+## Detection Prevalence   0.2865   0.1910   0.1827   0.1606   0.1793
+## Balanced Accuracy      0.9852   0.9575   0.9713   0.9759   0.9796</code></pre>
+</div>
+<div id="random-forest" class="section level3">
+<h3>Random Forest</h3>
+<pre class="r"><code># Fit random forest model and count system time
+system.time(rf_fit &lt;- train(
+    classe~., 
+    data=data[data$train==TRUE,-54],
+    method=&quot;rf&quot;,
+    na.action=na.omit))</code></pre>
+<pre><code>##    user  system elapsed 
+## 4507.06   20.70 4531.33</code></pre>
+<pre class="r"><code># Predict on validation set and assess accuracy
+rf_pred &lt;- predict(rf_fit, data[data$train==FALSE,])
+confusionMatrix(rf_pred, data[data$train==FALSE,]$classe)</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 1672    8    0    0    0
+##          B    2 1131    2    1    0
+##          C    0    0 1022   10    2
+##          D    0    0    2  951    7
+##          E    0    0    0    2 1073
+## 
+## Overall Statistics
+##                                           
+##                Accuracy : 0.9939          
+##                  95% CI : (0.9915, 0.9957)
+##     No Information Rate : 0.2845          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
+##                                           
+##                   Kappa : 0.9923          
+##  Mcnemar's Test P-Value : NA              
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.9988   0.9930   0.9961   0.9865   0.9917
+## Specificity            0.9981   0.9989   0.9975   0.9982   0.9996
+## Pos Pred Value         0.9952   0.9956   0.9884   0.9906   0.9981
+## Neg Pred Value         0.9995   0.9983   0.9992   0.9974   0.9981
+## Prevalence             0.2845   0.1935   0.1743   0.1638   0.1839
+## Detection Rate         0.2841   0.1922   0.1737   0.1616   0.1823
+## Detection Prevalence   0.2855   0.1930   0.1757   0.1631   0.1827
+## Balanced Accuracy      0.9985   0.9960   0.9968   0.9923   0.9956</code></pre>
+</div>
+</div>
+<div id="conclusion" class="section level2">
+<h2>Conclusion</h2>
+<div id="accuracy-and-expected-out-of-sample-error" class="section level3">
+<h3>Accuracy and expected out-of-sample error</h3>
+<p>Predictions on the validation dataset with the model built using random forest are highly accurate at more than 99% overall accuracy and a kappa coefficient of 0.9923. The expected out-of-sample error would thus be 1-Accuracy=0.0061.</p>
+<p>Predictions based on the model built with generalized boosted regression are still fairly accurate at more than 95%.</p>
+</div>
+<div id="costs" class="section level3">
+<h3>Costs</h3>
+<p>Both algorithms are rather machine time consuming. Random forest, however, uses more than 150% more system time than generalized boosted regression.</p>
+</div>
+<div id="prediction-on-testing-data" class="section level3">
+<h3>Prediction on testing data</h3>
+<p>Because of its high accuracy, we will use the random forest model to predict on the test set.</p>
+<pre class="r"><code>prediction &lt;- predict(rf_fit, pmltest)
+prediction</code></pre>
+<pre><code>##  [1] B A B A A E D B A A B C B A E E A B B B
+## Levels: A B C D E</code></pre>
+</div>
 </div>
 
 
