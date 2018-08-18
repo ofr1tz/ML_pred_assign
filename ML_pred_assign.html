@@ -169,12 +169,12 @@ data &lt;- pmltrain %&gt;%
 <h2>Model building</h2>
 <p>We will use two machine learning algorithms that are most suited for multi-class classification:</p>
 <ul>
-<li>Generalized Boosted Regression</li>
+<li>Gradient Boosting</li>
 <li>Random Forest</li>
 </ul>
 <p>We will assess the accuracy of the prediction on the validation observations while also measuring the “costs” (system time) for each of the model fitting algorithms.</p>
-<div id="generalized-boosted-regression" class="section level3">
-<h3>Generalized Boosted Regression</h3>
+<div id="gradient-boosting" class="section level3">
+<h3>Gradient Boosting</h3>
 <pre class="r"><code># Fit gbm model and count system time
 system.time(gbm_fit &lt;- train(
     classe~.,
@@ -270,11 +270,11 @@ confusionMatrix(rf_pred, data[data$train==FALSE,]$classe)</code></pre>
 <div id="accuracy-and-expected-out-of-sample-error" class="section level3">
 <h3>Accuracy and expected out-of-sample error</h3>
 <p>Predictions on the validation dataset with the model built using random forest are highly accurate at more than 99% overall accuracy and a kappa coefficient of 0.9923. The expected out-of-sample error would thus be 1-Accuracy=0.0061.</p>
-<p>Predictions based on the model built with generalized boosted regression are still fairly accurate at more than 95%.</p>
+<p>Predictions based on the model built with gradient boosting are still fairly accurate at more than 95%.</p>
 </div>
 <div id="costs" class="section level3">
 <h3>Costs</h3>
-<p>Both algorithms are rather machine time consuming. Random forest, however, uses more than 150% more system time than generalized boosted regression.</p>
+<p>Both algorithms are rather machine time consuming. Random forest, however, uses more than 150% more system time than gradient boosting.</p>
 </div>
 <div id="prediction-on-testing-data" class="section level3">
 <h3>Prediction on testing data</h3>

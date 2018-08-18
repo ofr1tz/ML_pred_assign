@@ -59,12 +59,12 @@ data <- pmltrain %>%
 ## Model building
 We will use two machine learning algorithms that are most suited for multi-class classification:
 
-- Generalized Boosted Regression
+- Gradient Boosting
 - Random Forest
 
 We will assess the accuracy of the prediction on the validation observations while also measuring the "costs" (system time) for each of the model fitting algorithms.
 
-### Generalized Boosted Regression
+### Gradient Boosting
 ```{r gbm, cache=TRUE, warning=FALSE, message=FALSE}
 # Fit gbm model and count system time
 system.time(gbm_fit <- train(
@@ -98,10 +98,10 @@ confusionMatrix(rf_pred, data[data$train==FALSE,]$classe)
 ### Accuracy and expected out-of-sample error
 Predictions on the validation dataset with the model built using random forest are highly accurate at more than 99% overall accuracy and a kappa coefficient of 0.9923. The expected out-of-sample error would thus be 1-Accuracy=0.0061.
 
-Predictions based on the model built with generalized boosted regression are still fairly accurate at more than 95%.
+Predictions based on the model built with gradient boosting are still fairly accurate at more than 95%.
 
 ### Costs
-Both algorithms are rather machine time consuming. Random forest, however, uses more than 150% more system time than generalized boosted regression.
+Both algorithms are rather machine time consuming. Random forest, however, uses more than 150% more system time than gradient boosting.
 
 ### Prediction on testing data
 Because of its high accuracy, we will use the random forest model to predict on the test set.
